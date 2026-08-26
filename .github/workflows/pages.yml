@@ -51,14 +51,36 @@ jobs:
           (cd .site && python ../patches/reliable/voice-v043.py)
           cp patches/reliable/pwa-register.tsx .site/app/pwa-register.tsx
           cp patches/reliable/sw.js .site/public/sw.js
+          (cd .site && python ../patches/reliable/v044.py)
 
-      - name: Snapshot patched source for QA
-        uses: actions/upload-artifact@v4
-        with:
-          name: klyvro-source-qa
-          path: .site
-          retention-days: 1
-          include-hidden-files: true
+      - name: Validate Klyvro source invariants
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          root = Path('.site/app')
+          joined = '\n'.join(p.read_text(encoding='utf-8') for p in root.glob('*') if p.is_file())
+          required = [
+              'const KLYVRO_BUILD = "0.4.4";',
+              'VOZ • CORE v0.4.4',
+              'Online • sincronizado',
+              'Mensagens recentes',
+              'createDeviceToken()',
+              'new URL(window.location.pathname, window.location.origin)',
+          ]
+          forbidden = [
+              'Online • 32 ms',
+              'host: "Maya"',
+              '24 de agosto de 2026',
+              '/klyvro/og.png',
+              'codex-preview',
+              'aguarde até 20 segundos',
+          ]
+          missing = [item for item in required if item not in joined]
+          found = [item for item in forbidden if item in joined]
+          if missing or found:
+              raise SystemExit(f'Klyvro source validation failed; missing={missing}; forbidden={found}')
+          print('Klyvro v0.4.4 source invariants OK')
+          PY
 
       - name: Install dependencies
         working-directory: .site
@@ -74,37 +96,22 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Normalize Pages domain and HTTPS
+      - name: Check Pages HTTPS state
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set +e
           api="https://api.github.com/repos/${GITHUB_REPOSITORY}/pages"
-          headers=(-H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2026-03-10")
-
-          current_code=$(curl -L -sS -o /tmp/pages-current.json -w "%{http_code}" "${headers[@]}" "$api")
-          echo "Pages settings lookup: HTTP ${current_code}"
+          code=$(curl -L -sS -o /tmp/pages-current.json -w "%{http_code}" -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2026-03-10" "$api")
+          echo "Pages settings lookup: HTTP ${code}"
           python - <<'PY'
           import json
           from pathlib import Path
-          try:
-              data = json.loads(Path('/tmp/pages-current.json').read_text() or '{}')
-              print('Pages before:', {'cname': data.get('cname'), 'html_url': data.get('html_url'), 'https_enforced': data.get('https_enforced')})
-          except Exception as exc:
-              print('Could not parse current Pages settings:', exc)
+          data = json.loads(Path('/tmp/pages-current.json').read_text() or '{}')
+          print('Pages:', {'cname': data.get('cname'), 'html_url': data.get('html_url'), 'https_enforced': data.get('https_enforced')})
+          if data.get('https_enforced') is not True:
+              print('::warning::HTTPS is not enforced in GitHub Pages settings; microphone/WebRTC can remain blocked until the owner enables Enforce HTTPS.')
           PY
-
-          remove_code=$(curl -L -sS -o /tmp/pages-domain.json -w "%{http_code}" -X PUT "${headers[@]}" "$api" -d '{"cname":null,"build_type":"workflow"}')
-          echo "Remove custom domain: HTTP ${remove_code}"
-          if [ "$remove_code" != "204" ]; then cat /tmp/pages-domain.json || true; fi
-
-          https_code=$(curl -L -sS -o /tmp/pages-https.json -w "%{http_code}" -X PUT "${headers[@]}" "$api" -d '{"https_enforced":true}')
-          echo "Enforce HTTPS: HTTP ${https_code}"
-          if [ "$https_code" != "204" ]; then cat /tmp/pages-https.json || true; fi
-
-          if [ "$remove_code" != "204" ] || [ "$https_code" != "204" ]; then
-            echo "::warning::GitHub Pages settings could not be fully normalized with GITHUB_TOKEN; deployment will continue."
-          fi
           exit 0
 
       - name: Upload site
