@@ -1,4 +1,4 @@
-name: Deploy Klyvro to GitHub Pages
+name: Build and deploy Klyvro
 
 on:
   push:
@@ -15,22 +15,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build-and-deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Restore Klyvro source
+        run: |
+          rm -rf .site
+          mkdir .site
+          cat source/part-*.b64 | base64 --decode | tar -xz -C .site
+
+      - name: Install dependencies
+        working-directory: .site
+        run: npm install --no-audit --no-fund
+
+      - name: Build static site
+        working-directory: .site
+        run: npm run build
+
+      - name: Prepare Pages artifact
+        run: touch .site/out/.nojekyll
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
+
       - name: Upload site
         uses: actions/upload-pages-artifact@v4
         with:
-          path: .
-      - name: Deploy to GitHub Pages
+          path: .site/out
+
+      - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
