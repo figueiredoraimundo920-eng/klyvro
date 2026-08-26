@@ -1,0 +1,10 @@
+="x" size={13} /></button></div>}
+           {onlineMembers.length > 0 && <><div className="member-heading member-section-label"><span>ONLINE — {onlineMembers.length}</span></div>{onlineMembers.map((member) => <MemberRow key={member.name} member={member} onOpen={() => { setFloatingPanel(null); setSelectedMember(member); }} />)}</>}
+           {awayMembers.length > 0 && <><div className="member-heading muted member-section-label"><span>AUSENTE — {awayMembers.length}</span></div>{awayMembers.map((member) => <MemberRow key={member.name} member={member} onOpen={() => { setFloatingPanel(null); setSelectedMember(member); }} />)}</>}
+           {visibleMembers.length === 0 && <div className="member-empty">Nenhum membro encontrado.</div>}
+           {selectedMember && <section className="member-mini-profile floating-panel" data-floating-root aria-label={`Perfil de ${selectedMember.name}`}><header><Avatar label={selectedMember.avatar} color={selectedMember.color} status={selectedMember.status} /><button aria-label="Fechar mini perfil" onClick={() => setSelectedMember(null)}><Icon name="x" size={15} /></button></header><strong>{selectedMember.name}{selectedMember.bot && <b className="bot-tag">BOT</b>}</strong><span>{selectedMember.status === "online" ? "Online" : selectedMember.status === "away" ? "Ausente" : "Offline"}</span><p>{selectedMember.game}</p></section>}
+-          <div className="connection-card"><div><Icon name="radio" size={17} /><span>Klyvro Relay</span></div><strong>São Paulo • 32 ms</strong><div className="signal-bars"><i /><i /><i /><i /></div></div>
++          <div className="connection-card"><div><Icon name="radio" size={17} /><span>Klyvro Realtime</span></div><strong>{networkState === "online" ? `${onlineSlots.length}/3 online` : "Conectando"}</strong><div className="signal-bars"><i /><i /><i /><i /></div></div>
+         </aside>
+       </div>
+ 
