@@ -28,13 +28,14 @@ export default function VoiceRoom({ roomName, roomId, profile, audio, onAudioCha
   const roomLeave = useRef<(()=>void)|null>(null);
   const remote = useRef(new Map<string, HTMLAudioElement>());
   const video = useRef<HTMLVideoElement|null>(null);
+  const screenRef = useRef<MediaStream|null>(null);
 
   const cleanup = useCallback(() => {
     roomLeave.current?.(); roomLeave.current = null;
     mic.current?.getTracks().forEach(t=>t.stop()); mic.current=null;
-    screen?.getTracks().forEach(t=>t.stop());
+    screenRef.current?.getTracks().forEach(t=>t.stop()); screenRef.current=null;
     remote.current.forEach(a=>{a.pause();a.srcObject=null;}); remote.current.clear();
-  }, [screen]);
+  }, []);
   useEffect(()=>()=>cleanup(),[cleanup]);
   useEffect(()=>{ const track=mic.current?.getAudioTracks()[0]; if(track) track.enabled=!muted && (audio.inputMode==="voice" || talking); },[muted,audio.inputMode,talking]);
   useEffect(()=>{ remote.current.forEach(a=>a.muted=deafened); },[deafened]);
@@ -74,8 +75,8 @@ export default function VoiceRoom({ roomName, roomId, profile, audio, onAudioCha
     } catch { cleanup(); setJoined(false); setState("error"); onToast("Falha ao entrar na rede P2P da call."); }
   };
   const leave=()=>{cleanup();setJoined(false);setPeers({});setState("idle");setScreen(null);onToast("Você saiu da sala de voz")};
-  const share=async()=>{if(!joined)return;try{const s=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});s.getVideoTracks()[0].onended=()=>setScreen(null);setScreen(s);onToast("Prévia local da tela iniciada.")}catch{onToast("Compartilhamento cancelado")}};
-  const stopShare=()=>{screen?.getTracks().forEach(t=>t.stop());setScreen(null)};
+  const share=async()=>{if(!joined)return;try{const s=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});s.getVideoTracks()[0].onended=()=>{screenRef.current=null;setScreen(null)};screenRef.current=s;setScreen(s);onToast("Prévia local da tela iniciada.")}catch{onToast("Compartilhamento cancelado")}};
+  const stopShare=()=>{screenRef.current?.getTracks().forEach(t=>t.stop());screenRef.current=null;setScreen(null)};
   const list=Object.entries(peers);
 
   return <div className="voice-room">
