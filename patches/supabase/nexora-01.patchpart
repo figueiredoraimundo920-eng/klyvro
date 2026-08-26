@@ -1,0 +1,115 @@
+  avatar: (item.display_name[0] || "J").toUpperCase(),
++    color: item.avatar_color,
++    status: onlineSlots.includes(item.slot) ? "online" : "offline",
++  }));
++  const visibleMembers = realtimeMembers.filter((member) => `${member.name} ${member.game}`.toLowerCase().includes(normalizedMemberQuery));
+   const onlineMembers = visibleMembers.filter((member) => member.status === "online");
+   const awayMembers = visibleMembers.filter((member) => member.status !== "online");
+   const searchResults = searchQuery.trim().length < 2 ? [] : Object.entries(messages).flatMap(([channelId, items]) => items.filter((message) => `${message.author} ${message.text}`.toLowerCase().includes(searchQuery.trim().toLowerCase())).map((message) => ({ ...message, channelId }))).slice(0, 5);
+@@ -211,6 +222,12 @@
+     return () => window.clearTimeout(timer);
+   }, []);
+ 
++  useEffect(() => { selectedRef.current = selected; }, [selected]);
++  useEffect(() => {
++    const area = messageScrollRef.current;
++    if (!area || !stickToBottomRef.current) return;
++    requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
++  }, [currentMessages.length, selected]);
+   useEffect(() => { if (storageReady) writeLocal(STORAGE_KEYS.lightMode, performance); }, [performance, storageReady]);
+   useEffect(() => { if (storageReady) writeLocal(STORAGE_KEYS.drafts, drafts); }, [drafts, storageReady]);
+   useEffect(() => { if (storageReady) writeLocal(STORAGE_KEYS.lastChannels, lastChannels); }, [lastChannels, storageReady]);
+@@ -218,6 +235,81 @@
+   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(null), 2600); return () => window.clearTimeout(timer); }, [toast]);
+ 
+   useEffect(() => {
++    if (!storageReady) return;
++    let cancelled = false;
++    let channelRef: ReturnType<typeof supabase.channel> | null = null;
++    setNetworkState("connecting");
++
++    const rowToMessage = (row: { id: string; author_name: string; author_slot: number; body: string; channel_id: string; created_at: string }): Message => {
++      const color = profileRows.find((item) => item.slot === Number(row.author_slot))?.avatar_color ?? "#ff304f";
++      const created = new Date(row.created_at);
++      return { id: row.id, author: row.author_name, avatar: (row.author_name[0] || "J").toUpperCase(), color, time: `Hoje, ${created.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`, text: row.body, channelId: row.channel_id };
++    };
++
++    void (async () => {
++      try {
++        const token = getDeviceToken();
++        deviceTokenRef.current = token;
++        const { data: claimed, error: claimError } = await supabase.rpc("klyvro_claim_profile", { p_token: token });
++        if (claimError) throw claimError;
++        const identity = Array.isArray(claimed) ? claimed[0] : null;
++        if (!identity || cancelled) return;
++        const slot = Number(identity.slot);
++        setProfileSlot(slot);
++        setProfile((current) => ({ ...current, name: String(identity.display_name || `Jogador ${slot}`) }));
++
++        const [{ data: profiles, error: profilesError }, { data: history, error: historyError }] = await Promise.all([
++          supabase.from("klyvro_profiles").select("slot,display_name,avatar_color,claimed").order("slot"),
++          supabase.from("klyvro_messages").select("id,server_id,channel_id,author_slot,author_name,body,created_at").order("created_at", { ascending: true }).limit(300),
++        ]);
++        if (profilesError) throw profilesError;
++        if (historyError) throw historyError;
++        if (profiles && !cancelled) setProfileRows(profiles as KlyvroProfileRow[]);
++        if (history && !cancelled) {
++          const grouped: Record<string, Message[]> = {};
++          for (const row of history) {
++            const message = rowToMessage(row as never);
++            grouped[message.channelId ?? "geral"] = mergeMessages(grouped[message.channelId ?? "geral"] ?? [], message);
++          }
++          setMessages((current) => ({ ...current, ...grouped }));
++        }
++
++        const realtime = supabase.channel("klyvro-community-v2", { config: { presence: { key: `slot-${slot}` } } });
++        channelRef = realtime;
++        const refreshPresence = () => {
++          const state = realtime.presenceState<{ slot: number; name: string }>();
++          const slots = Array.from(new Set(Object.values(state).flat().map((entry) => Number(entry.slot)).filter((value) => value >= 1 && value <= 3)));
++          setOnlineSlots(slots);
++        };
++        realtime
++          .on("presence", { event: "sync" }, refreshPresence)
++          .on("presence", { event: "join" }, refreshPresence)
++          .on("presence", { event: "leave" }, refreshPresence)
++          .on("postgres_changes", { event: "INSERT", schema: "public", table: "klyvro_messages" }, (payload) => {
++            const message = rowToMessage(payload.new as never);
++            setMessages((current) => ({ ...current, [message.channelId ?? "geral"]: mergeMessages(current[message.channelId ?? "geral"] ?? [], message) }));
++            if (message.channelId !== selectedRef.current) setReadChannels((current) => ({ ...current, [message.channelId ?? "geral"]: false }));
++          })
++          .subscribe(async (status) => {
++            if (status === "SUBSCRIBED") {
++              await realtime.track({ slot, name: String(identity.display_name), online_at: new Date().toISOString() });
++              refreshPresence();
++              setNetworkState("online");
++            } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setNetworkState("offline");
++          });
++      } catch (error) {
++        console.error("Klyvro Supabase init failed", error);
++        if (!cancelled) setNetworkState("offline");
++      }
++    })();
++
++    return () => {
++      cancelled = true;
++      if (channelRef) void supabase.removeChannel(channelRef);
++    };
++  }, [storageReady]);
++
++  useEffect(() => {
+     const shortcuts = (event: KeyboardEvent) => {
+       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+         event.preventDefault();
+@@ -319,16 +411,23 @@
+   const submitMessage = () => {
+     const text = draft.trim();
+     if (!text || text.length > MAX_MESSAGE_LENGTH || channel.type !== "text") return;
+-    const next: Message = { id: createLocalId("message"), author: profile.name, avatar: (profile.name[0] || "N").toUpperCase(), avatarUrl: profile.photo, color: "#ff304f", time: "Agora", text, reply: replying ?? undefined };
+-    setMessages((previous) => {
+-      const updated = { ...previous, [selected]: [...(previous[selected] ?? []), next] };
+-      writeLocal(STORAGE_KEYS.messages, updated);
+-      return updated;
+-    });
++    const next: Message = { id: createLocalId("message"), author: profile.name.trim().slice(0, 24) || "Jogador", avatar: (profile.name[0] || "J").toUpperCase(), avatarUrl: profile.photo, color: "#ff304f", time: "Agora", text, reply: replying ?? undefined };
++   
