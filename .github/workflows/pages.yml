@@ -52,6 +52,7 @@ jobs:
           cp patches/reliable/pwa-register.tsx .site/app/pwa-register.tsx
           cp patches/reliable/sw.js .site/public/sw.js
           (cd .site && python ../patches/reliable/v044.py)
+          (cd .site && python ../patches/reliable/v044-fix.py)
 
       - name: Validate Klyvro source invariants
         run: |
