@@ -36,6 +36,7 @@ jobs:
           rm -rf .site
           mkdir .site
           cat source/part-*.b64 | base64 --decode | tar -xz -C .site
+          sed -i '1iexport const dynamic = "force-static";' .site/app/manifest.ts
 
       - name: Install dependencies
         working-directory: .site
