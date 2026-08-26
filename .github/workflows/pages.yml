@@ -31,8 +31,9 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Restore Klyvro source
+      - name: Restore and patch Klyvro source
         run: |
+          set -euo pipefail
           rm -rf .site
           mkdir .site
           {
@@ -44,6 +45,10 @@ jobs:
             cat source/part-04.b64
             cat source/part-05.b64
           } | base64 --decode | tar -xz -C .site
+          (cd .site && patch -p1 < ../patches/reliable/nexora.patch)
+          cp patches/reliable/voice-room.tsx .site/app/voice-room.tsx
+          cp patches/reliable/pwa-register.tsx .site/app/pwa-register.tsx
+          cp patches/reliable/sw.js .site/public/sw.js
 
       - name: Install dependencies
         working-directory: .site
