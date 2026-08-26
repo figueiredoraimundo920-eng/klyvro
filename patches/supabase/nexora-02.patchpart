@@ -1,0 +1,55 @@
+ const token = deviceTokenRef.current;
++    if (token && profileSlot && networkState === "online") {
++      void supabase.rpc("klyvro_send_message", { p_token: token, p_server_id: activeServer, p_channel_id: selected, p_body: text }).then(({ error }) => {
++        if (error) {
++          setMessages((previous) => ({ ...previous, [selected]: mergeMessages(previous[selected] ?? [], next) }));
++          setToast("Falha ao enviar ao servidor; mensagem salva só neste navegador.");
++        }
++      });
++    } else {
++      setMessages((previous) => ({ ...previous, [selected]: mergeMessages(previous[selected] ?? [], next) }));
++    }
+     setDraft("");
+     setReplying(null);
+     closeTransientPanels();
+-    setToast("Mensagem enviada neste dispositivo");
++    stickToBottomRef.current = true;
++    setToast(networkState === "online" ? "Mensagem enviada ao Klyvro" : "Servidor reconectando; mensagem mantida localmente");
+   };
+ 
+   const sendMessage = (event: FormEvent) => { event.preventDefault(); submitMessage(); };
+@@ -358,7 +457,15 @@
+       setToast("Não foi possível copiar automaticamente neste navegador");
+     }
+   };
+-  const saveProfile = (next: UserProfile) => { setProfile(next); writeLocal(STORAGE_KEYS.profile, next); };
++  const saveProfile = (next: UserProfile) => {
++    setProfile(next); writeLocal(STORAGE_KEYS.profile, next);
++    const token = deviceTokenRef.current;
++    if (token && profileSlot) void supabase.rpc("klyvro_update_profile", { p_token: token, p_display_name: next.name.trim().slice(0, 24) || "Jogador" }).then(({ data, error }) => {
++      if (error) { setToast("Não foi possível sincronizar o nome agora"); return; }
++      const updated = Array.isArray(data) ? data[0] : null;
++      if (updated) setProfileRows((rows) => rows.map((row) => row.slot === profileSlot ? { ...row, display_name: String(updated.display_name) } : row));
++    });
++  };
+   const saveAudio = (next: AudioPreferences) => { setAudio(next); writeLocal(STORAGE_KEYS.audio, next); };
+   const showSoon = (feature: string) => setToast(`${feature}: em breve`);
+ 
+@@ -389,7 +496,7 @@
+       <div className="quick-panel"><div className="quick-copy"><span><Icon name="zap" size={14} /> DESEMPENHO</span><strong>{performance ? "Modo leve ativo" : "Modo visual ativo"}</strong></div><button className={`switch ${performance ? "on" : ""}`} aria-pressed={performance} aria-label={performance ? "Ativar modo visual" : "Ativar modo leve"} onClick={() => setPerformance((value) => !value)}><i /></button></div>
+       <div className="channel-scroll">
+         <section className="channel-group"><h2><span>CANAIS DE TEXTO</span><Icon name="plus" size={15} /></h2>{server.channels.filter((item) => item.type !== "voice").map((item) => <ChannelRow key={item.id} channel={item} active={selected === item.id} unread={readChannels[item.id] ? undefined : item.badge} onClick={() => selectChannel(item.id)} />)}</section>
+-        <section className="channel-group"><h2><span>CANAIS DE VOZ</span><Icon name="plus" size={15} /></h2>{server.channels.filter((item) => item.type === "voice").map((item) => <div key={item.id}><ChannelRow channel={item} active={selected === item.id} unread={readChannels[item.id] ? undefined : item.badge} onClick={() => selectChannel(item.id)} />{item.id === server.channels.find((candidate) => candidate.type === "voice")?.id && <div className="voice-mini">{server.members.filter((member) => member.status === "online").slice(0, 2).map((member) => <span key={member.name}><Avatar label={member.avatar} color={member.color} small /> {member.name}</span>)}</div>}</div>)}</section>
++        <section className="channel-group"><h2><span>CANAIS DE VOZ</span><Icon name="plus" size={15} /></h2>{server.channels.filter((item) => item.type === "voice").map((item) => <div key={item.id}><ChannelRow channel={item} active={selected === item.id} unread={readChannels[item.id] ? undefined : item.badge} onClick={() => selectChannel(item.id)} />{item.id === server.channels.find((candidate) => candidate.type === "voice")?.id && <div className="voice-mini">{realtimeMembers.filter((member) => member.status === "online").slice(0, 2).map((member) => <span key={member.name}><Avatar label={member.avatar} color={member.color} small /> {member.name}</span>)}</div>}</div>)}</section>
+         <button className="invite-card" onClick={copyInvite}><span><Icon name="copy" size={16} /> Convidar amigos</span><small>Um link. Entrada rápida.</small></button>
+       </div>
+       <div className="user-dock"><Avatar label={(profile.name[0] || "N").toUpperCase()} color="#ff304f" image={profile.photo} small status="online" /><div><strong>{profile.name}</strong><span>Online • 32 ms</span></div><button aria-label="Configurar microfone" data-tooltip="Microfone" onClick={() => setSettingsTab("audio")}><Icon name="mic" size={17} /></button><button aria-label="Configurar áudio" data-tooltip="Áudio" onClick={() => setSettingsTab("audio")}><Icon name="headphones" size={17} /></button><button aria-label="Editar perfil" data-tooltip="Perfil" onClick={() => setSettingsTab("profile")}><Icon name="settings" size={17} /></button></div>
+@@ -417,35 +524,35 @@
+ 
+       <div className={`workspace-grid ${membersOpen ? "members-open" : "members-hidden"}`}>
+         <div className="chat-panel">
+-          <div className="performance-banner"><div className="pulse-copy"><span><Icon name="zap" size={15} /> {performance ? "Modo leve ativo" : "Modo visual ativo"}</span><small>{performance ? "prioridade em FPS • mídia sob demanda" : "transições discretas • desempenho estável"}</small></div><div className="pulse-badges"><b><i /> 32 MS</b><b><Icon name="shield" size={12} /> PERFIL LOCAL</b></div><button onClick={() => setPerformance((value) => !value)} aria-label={performance ? "Ativar modo visual" : "Ativar modo leve"} aria-pressed={performance}>{performance ? "Ativar visual" : "Ativar leve"}</button></div>
++          <div className="performance-banner"><div className="pulse-copy"><span><Icon name="zap" size={15} /> {performance ? "Modo leve ativo" : "Modo visual ativo"}</span><small>{performance ? "prioridade em FPS • mídia sob demanda" : "transições discretas • desempenho estável"} • {networkState === "online" ? "Realtime online" : networkState === "connecting" ? "conectando" : "offline"}</small></div><div className="pulse-badges"><b><i /> {onlineSlots.length}/3 ONLINE</b><b><Icon name="shield" size={12} /> SUPABASE</b></div><button onClick={() => setPerformance((value) => !value)} aria-label={performance ? "Ativar modo visual" : "Ativar modo leve"} aria-pressed={performance}>{performance ? "Ativar visual" : "Ativar leve"}</button></div>
+ 
+           {channel.type === "text" ? <>
+-            <div className="message-scroll"><div className="channel-welcome"><div><Icon name="hash" size={28} /></div><h1>Bem-vindo a #{channel.label}</h1><p>{channel.id === "geral" ? "O ponto de encontro do esquadrão. Organize a jogatina sem distração." : "Conve
