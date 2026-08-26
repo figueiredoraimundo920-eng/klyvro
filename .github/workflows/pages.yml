@@ -35,7 +35,15 @@ jobs:
         run: |
           rm -rf .site
           mkdir .site
-          cat source/part-*.b64 | base64 --decode | tar -xz -C .site
+          {
+            cat source/part-00.b64
+            cat source/part-01.b64
+            cat source/part-02.b64
+            cat patches/supabase/source-part02-suffix.b64part
+            cat source/part-03.b64
+            cat source/part-04.b64
+            cat source/part-05.b64
+          } | base64 --decode | tar -xz -C .site
 
       - name: Install dependencies
         working-directory: .site
