@@ -31,17 +31,11 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Restore and patch Klyvro
+      - name: Restore Klyvro source
         run: |
-          set -euo pipefail
           rm -rf .site
           mkdir .site
-          for part in 00 01 02 03 04 05; do
-            curl -fsSL "https://raw.githubusercontent.com/figueiredoraimundo920-eng/klyvro/0ca56330125e6994596fceed8bb9b70bcc2386f0/source/part-${part}.b64"
-          done | base64 --decode | tar -xz -C .site
-          sed -i '1iexport const dynamic = "force-static";' .site/app/manifest.ts
-          python3 patches/apply-realtime.py .site
-          cp patches/voice-room.tsx .site/app/voice-room.tsx
+          cat source/part-*.b64 | base64 --decode | tar -xz -C .site
 
       - name: Install dependencies
         working-directory: .site
