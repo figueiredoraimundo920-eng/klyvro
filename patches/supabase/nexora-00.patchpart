@@ -1,0 +1,121 @@
+--- /mnt/data/klyvro_backend/original/klyvro/app/nexora-app.tsx	2026-08-25 00:46:03.000000000 +0000
++++ /mnt/data/klyvro_backend/min2/app/nexora-app.tsx	2026-08-26 21:59:11.658838186 +0000
+@@ -5,6 +5,7 @@
+ import { isLocalRecord, readLocal, STORAGE_KEYS, writeLocal } from "./local-storage";
+ import SettingsPanel, { AudioPreferences, DEFAULT_AUDIO, DEFAULT_PROFILE, SettingsTab, UserProfile } from "./settings-panel";
+ import VoiceRoom from "./voice-room";
++import { getDeviceToken, supabase } from "./supabase-client";
+ 
+ type IconName = "hash" | "volume" | "users" | "search" | "pin" | "bell" | "settings" | "mic" | "headphones" | "plus" | "send" | "reply" | "smile" | "gamepad" | "zap" | "shield" | "copy" | "x" | "chevron" | "radio" | "monitor";
+ 
+@@ -42,6 +43,7 @@
+ type ServerId = "kv" | "cp" | "mc";
+ type FloatingPanel = "notifications" | "options" | "pins" | "search" | "emoji" | "gif" | null;
+ type ServerConfig = { id: ServerId; short: string; title: string; subtitle: string; className: string; defaultChannel: string; channels: Channel[]; members: Member[] };
++type KlyvroProfileRow = { slot: number; display_name: string; avatar_color: string; claimed: boolean };
+ 
+ const servers: Record<ServerId, ServerConfig> = {
+   kv: {
+@@ -96,33 +98,23 @@
+ };
+ 
+ const initialMessages: Record<string, Message[]> = {
+-  geral: [
+-    { id: "m1", author: "Maya", avatar: "M", color: "#f58bd8", time: "Hoje, 18:21", text: "Alguém fecha um trio no Valorant depois das 20h?", reactions: { "🔥": 3, "🎮": 2 } },
+-    { id: "m2", author: "Caio", avatar: "C", color: "#63d6ff", time: "Hoje, 18:22", text: "Eu entro. Abri um grupo no canal procurando-time.", reply: "Maya" },
+-    { id: "m3", author: "KLY", avatar: "K", color: "#ff304f", time: "Hoje, 18:23", tag: "BOT", text: "Klyvro Pulse ativado para esta sessão. Animações e prévias automáticas estão reduzidas." },
+-    { id: "m4", author: "Lia", avatar: "L", color: "#ffb15c", time: "Hoje, 18:25", text: "Esse visual ficou muito mais limpo. Entro no competitivo também!", reactions: { "⚡": 4 } },
+-  ],
+-  clips: [{ id: "c1", author: "Caio", avatar: "C", color: "#63d6ff", time: "Hoje, 17:44", text: "Manda aqui as melhores jogadas da noite. Os vídeos só carregam quando alguém abre." }],
+-  "cp-geral": [{ id: "cp1", author: "Nina", avatar: "N", color: "#d7a7ff", time: "Hoje, 18:42", text: "Fila competitiva abre às 19h. Quem entra como suporte?" }],
+-  estrategias: [{ id: "cp2", author: "Theo", avatar: "T", color: "#77d9ff", time: "Hoje, 18:34", text: "Deixei a rotação da próxima partida organizada aqui." }],
+-  "mc-geral": [{ id: "mc1", author: "Caio", avatar: "C", color: "#63d6ff", time: "Hoje, 18:29", text: "O portal da vila já está pronto. Falta organizar a expedição." }],
+-  construcoes: [{ id: "mc2", author: "Bia", avatar: "B", color: "#83e58e", time: "Hoje, 18:16", text: "Comecei a muralha no lado norte. Quem puder, deixa pedra no baú." }],
++  geral: [],
++  clips: [],
++  "cp-geral": [],
++  estrategias: [],
++  "mc-geral": [],
++  construcoes: [],
+ };
+ 
+-const initialNotifications = [
+-  { id: "n1", title: "Maya mencionou você", detail: "Fechamos o trio às 20h?", time: "há 4 min", channelId: "geral" },
+-  { id: "n2", title: "Novo grupo em Valorant", detail: "Competitivo • falta 1 jogador", time: "há 11 min", channelId: "cp-geral" },
+-];
+-
+-const pinnedByChannel: Record<string, Message[]> = {
+-  geral: [{ id: "pin1", author: "Maya", avatar: "M", color: "#f58bd8", time: "Hoje, 18:10", text: "Treino competitivo às 20h. Entrem no canal Lobby cinco minutos antes.", channelId: "geral" }],
+-  "cp-geral": [{ id: "pin2", author: "Nina", avatar: "N", color: "#d7a7ff", time: "Hoje, 17:50", text: "Confirme sua função antes de entrar na fila competitiva.", channelId: "cp-geral" }],
+-};
++const initialNotifications: { id: string; title: string; detail: string; time: string; channelId: string }[] = [];
++
++const pinnedByChannel: Record<string, Message[]> = {};
+ 
+ const emojis = ["😀", "😂", "🔥", "🎮", "⚡", "❤️", "👍", "🏆", "👀", "✅", "🚀", "💯"];
+ const MAX_MESSAGE_LENGTH = 2000;
+ const COUNTER_START = 1800;
+ const createLocalId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
++const mergeMessages = (items: Message[], incoming: Message) => items.some((item) => item.id === incoming.id) ? items : [...items, incoming].slice(-150);
+ 
+ export function Avatar({ label, color, image, small = false, status }: { label: string; color: string; image?: string | null; small?: boolean; status?: string }) {
+   return <span className={`avatar ${small ? "avatar-small" : ""}`} style={{ "--avatar": color } as React.CSSProperties}>{image ? <span className="avatar-picture" style={{ backgroundImage: `url(${image})` }} /> : label}{status && <i className={`presence ${status}`} />}</span>;
+@@ -161,6 +153,14 @@
+   const [notifications, setNotifications] = useState(initialNotifications);
+   const [notificationsRead, setNotificationsRead] = useState(false);
+   const [storageReady, setStorageReady] = useState(false);
++  const [networkState, setNetworkState] = useState<"connecting" | "online" | "offline">("connecting");
++  const [profileSlot, setProfileSlot] = useState<number | null>(null);
++  const [profileRows, setProfileRows] = useState<KlyvroProfileRow[]>([
++    { slot: 1, display_name: "Luccas", avatar_color: "#ff304f", claimed: false },
++    { slot: 2, display_name: "Jogador 2", avatar_color: "#63d6ff", claimed: false },
++    { slot: 3, display_name: "Jogador 3", avatar_color: "#f58bd8", claimed: false },
++  ]);
++  const [onlineSlots, setOnlineSlots] = useState<number[]>([]);
+   const [lastChannels, setLastChannels] = useState<Record<ServerId, string>>({ kv: "geral", cp: "cp-geral", mc: "mc-geral" });
+   const [readChannels, setReadChannels] = useState<Record<string, boolean>>({});
+   const composerRef = useRef<HTMLTextAreaElement>(null);
+@@ -168,6 +168,10 @@
+   const memberSearchButtonRef = useRef<HTMLButtonElement>(null);
+   const mobileMenuRef = useRef<HTMLButtonElement>(null);
+   const floatingTriggerRef = useRef<HTMLButtonElement | null>(null);
++  const deviceTokenRef = useRef<string | null>(null);
++  const messageScrollRef = useRef<HTMLDivElement | null>(null);
++  const stickToBottomRef = useRef(true);
++  const selectedRef = useRef(selected);
+ 
+   const server = servers[activeServer];
+   const channel = server.channels.find((item) => item.id === selected) ?? server.channels[0];
+@@ -175,7 +179,14 @@
+   const pinnedMessages = pinnedByChannel[selected] ?? [];
+   const draft = drafts[selected] ?? "";
+   const normalizedMemberQuery = memberQuery.trim().toLowerCase();
+-  const visibleMembers = server.members.filter((member) => `${member.name} ${member.game}`.toLowerCase().includes(normalizedMemberQuery));
++  const realtimeMembers: Member[] = profileRows.map((item) => ({
++    name: item.display_name,
++    game: onlineSlots.includes(item.slot) ? "Klyvro • conectado agora" : "Offline",
++    avatar: (item.display_name[0] || "J").toUpperCase(),
++    color: item.avatar_color,
++    status: onlineSlots.includes(item.slot) ? "online" : "offline",
++  }));
++  const visibleMembers = realtimeMembers.filter((member) => `${member.name} ${member.game}`.toLowerCase().includes(normalizedMemberQuery));
+   const onlineMembers = visibleMembers.filter((member) => member.status === "online");
+   const awayMembers = visibleMembers.filter((member) => member.status !== "online");
+   const searchResults = searchQuery.trim().length < 2 ? [] : Object.entries(messages).flatMap(([channelId, items]) => items.filter((message) => `${message.author} ${message.text}`.toLowerCase().includes(searchQuery.trim().toLowerCase())).map((message) => ({ ...message, channelId }))).slice(0, 5);
+@@ -211,6 +222,12 @@
+     return () => window.clearTimeout(timer);
+   }, []);
+ 
++  useEffect(() => { selectedRef.current = selected; }, [selected]);
++  useEffect(() => {
++    const area = messageScrollRef.current;
++    if (!area || !stickToBottomRef.current) return;
++    requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
++  }, [currentMessages.length, selected]);
+   useEffect(() => { if (storageReady) writeLocal(STORAGE_KEYS.lightMode, performance); }, [performance, storageReady]);
+   useEffect(() => { if (storageReady) writeLocal(STORAGE_KEYS.drafts, drafts); }, [drafts, storageReady]);
+   useEffect(() => { if (storageReady) writeLocal(STORAGE_KEYS.lastChannels, lastChannels); }, [lastChannels, storageReady]);
+@@ -218,6 +235,81 @@
+   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(null), 2600); return () => window.clearTimeout(timer); }, [toast]);
+ 
+   useEffect(() => {
