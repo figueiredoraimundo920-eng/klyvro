@@ -48,6 +48,7 @@ jobs:
           (cd .site && patch -p1 < ../patches/reliable/nexora.patch)
           (cd .site && python ../patches/reliable/retry-init.py)
           cp patches/reliable/voice-room.tsx .site/app/voice-room.tsx
+          (cd .site && python ../patches/reliable/voice-v043.py)
           cp patches/reliable/pwa-register.tsx .site/app/pwa-register.tsx
           cp patches/reliable/sw.js .site/public/sw.js
 
@@ -64,6 +65,39 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+
+      - name: Normalize Pages domain and HTTPS
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/pages"
+          headers=(-H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2026-03-10")
+
+          current_code=$(curl -L -sS -o /tmp/pages-current.json -w "%{http_code}" "${headers[@]}" "$api")
+          echo "Pages settings lookup: HTTP ${current_code}"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          try:
+              data = json.loads(Path('/tmp/pages-current.json').read_text() or '{}')
+              print('Pages before:', {'cname': data.get('cname'), 'html_url': data.get('html_url'), 'https_enforced': data.get('https_enforced')})
+          except Exception as exc:
+              print('Could not parse current Pages settings:', exc)
+          PY
+
+          remove_code=$(curl -L -sS -o /tmp/pages-domain.json -w "%{http_code}" -X PUT "${headers[@]}" "$api" -d '{"cname":null,"build_type":"workflow"}')
+          echo "Remove custom domain: HTTP ${remove_code}"
+          if [ "$remove_code" != "204" ]; then cat /tmp/pages-domain.json || true; fi
+
+          https_code=$(curl -L -sS -o /tmp/pages-https.json -w "%{http_code}" -X PUT "${headers[@]}" "$api" -d '{"https_enforced":true}')
+          echo "Enforce HTTPS: HTTP ${https_code}"
+          if [ "$https_code" != "204" ]; then cat /tmp/pages-https.json || true; fi
+
+          if [ "$remove_code" != "204" ] || [ "$https_code" != "204" ]; then
+            echo "::warning::GitHub Pages settings could not be fully normalized with GITHUB_TOKEN; deployment will continue."
+          fi
+          exit 0
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v4
