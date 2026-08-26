@@ -52,6 +52,14 @@ jobs:
           cp patches/reliable/pwa-register.tsx .site/app/pwa-register.tsx
           cp patches/reliable/sw.js .site/public/sw.js
 
+      - name: Snapshot patched source for QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: klyvro-source-qa
+          path: .site
+          retention-days: 1
+          include-hidden-files: true
+
       - name: Install dependencies
         working-directory: .site
         run: npm install --no-audit --no-fund
