@@ -44,4 +44,35 @@ once(
       };'''
 )
 
-print('Klyvro v0.4.18 heartbeat/media-status separation patch applied')
+# ICE gathering can produce the only viable route for a restrictive peer. A
+# transient signaling RPC failure must not permanently discard that candidate.
+# Retry briefly, but only while the candidate still belongs to the exact same
+# RTCPeerConnection generation. This avoids leaking stale ICE into a rebuilt
+# peer and keeps the retry bounded.
+once(
+    'app/voice-room.tsx',
+    '''        pc.onicecandidate = (event) => {
+          if (event.candidate) void sendSignal(remoteSlot, "candidate", event.candidate.toJSON()).catch(() => onToast("Falha ao trocar rota de áudio."));
+        };''',
+    '''        pc.onicecandidate = (event) => {
+          if (!event.candidate) return;
+          const candidate = event.candidate.toJSON();
+          const sendCandidate = async (attempt = 1): Promise<void> => {
+            if (pcs.current.get(remoteSlot) !== pc || pc.connectionState === "closed") return;
+            try {
+              await sendSignal(remoteSlot, "candidate", candidate);
+            } catch (error) {
+              if (attempt >= 3 || pcs.current.get(remoteSlot) !== pc || pc.connectionState === "closed") {
+                console.warn("Klyvro ICE candidate signaling failed", { remoteSlot, attempt, error });
+                onToast("Falha ao trocar rota de áudio. Vou tentar recuperar a conexão.");
+                return;
+              }
+              await new Promise<void>((resolve) => window.setTimeout(resolve, 250 * attempt));
+              return sendCandidate(attempt + 1);
+            }
+          };
+          void sendCandidate();
+        };'''
+)
+
+print('Klyvro v0.4.18 heartbeat/media-status + ICE signaling retry patch applied')
