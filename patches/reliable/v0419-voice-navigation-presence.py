@@ -82,7 +82,7 @@ once(
 # navigation only; the current WebRTC room stays mounted until Enter is pressed.
 once(
     'app/nexora-app.tsx',
-    '''  useEffect(() => { selectedRef.current = selected); }, [selected]);
+    '''  useEffect(() => { selectedRef.current = selected; }, [selected]);
   useEffect(() => { activeServerRef.current = activeServer; }, [activeServer]);
   useEffect(() => {
     const selectedChannel = servers[activeServer].channels.find((item) => item.id === selected);
