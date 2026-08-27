@@ -138,4 +138,50 @@ once(
       const handleSignal = async (signal: SignalRow) => {'''
 )
 
-print('Klyvro v0.4.10 real WebRTC reconnect patch applied')
+# Signaling acknowledgement reliability: a row is acknowledged only after the
+# browser successfully handles it. This prevents one transient SDP/WebRTC error
+# from permanently discarding an offer/answer/screen event.
+once(
+    'app/voice-room.tsx',
+    '''  const lastSignalIdRef = useRef(0);
+  const profilesRef = useRef<Record<number, ProfileRow>>({});''',
+    '''  const lastSignalIdRef = useRef(0);
+  const signalFailures = useRef(new Map<number, number>());
+  const profilesRef = useRef<Record<number, ProfileRow>>({});'''
+)
+
+once(
+    'app/voice-room.tsx',
+    '''    lastSignalIdRef.current = 0;
+    joinedAtRef.current = Date.now();''',
+    '''    lastSignalIdRef.current = 0;
+    signalFailures.current.clear();
+    joinedAtRef.current = Date.now();'''
+)
+
+signal_loop = '''        for (const raw of (data ?? []) as SignalRow[]) {
+          const signalId = Number(raw.id);
+          try {
+            await handleSignal(raw);
+            signalFailures.current.delete(signalId);
+            lastSignalIdRef.current = Math.max(lastSignalIdRef.current, signalId);
+          } catch (error) {
+            const failures = (signalFailures.current.get(signalId) ?? 0) + 1;
+            signalFailures.current.set(signalId, failures);
+            console.warn("Klyvro voice signal processing failed", { signalId, kind: raw.kind, failures, error });
+            if (failures >= 3) {
+              signalFailures.current.delete(signalId);
+              lastSignalIdRef.current = Math.max(lastSignalIdRef.current, signalId);
+              notify("Um sinal de mídia falhou repetidamente e foi ignorado para a call continuar.");
+              continue;
+            }
+            break;
+          }
+        }'''
+regex_once(
+    'app/voice-room.tsx',
+    r'        for \(const raw of \(data \?\? \[\]\) as SignalRow\[\]\) \{\n          lastSignalIdRef\.current = Math\.max\(lastSignalIdRef\.current, Number\(raw\.id\)\);\n          await handleSignal\(raw\).*?\n        \}',
+    signal_loop
+)
+
+print('Klyvro v0.4.10 real WebRTC reconnect + signal acknowledgement patch applied')
