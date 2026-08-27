@@ -78,7 +78,6 @@ if voice.count(late_old) != 1:
     raise SystemExit(f'app/voice-room.tsx: late peer quality target expected once, found {voice.count(late_old)}')
 voice = voice.replace(late_old, late_new, 1)
 
-# bindNegotiatedVideoSender now closes over the rebalance callback.
 bind_tail_old = '''    if (activeTrack) void negotiated.sender.replaceTrack(activeTrack).then(() => rebalanceScreenQuality()).catch(() => undefined);
   }, []);'''
 bind_tail_new = '''    if (activeTrack) void negotiated.sender.replaceTrack(activeTrack).then(() => rebalanceScreenQuality()).catch(() => undefined);
@@ -93,8 +92,6 @@ if voice.count(fanout_old) != 1:
     raise SystemExit(f'app/voice-room.tsx: initial quality fanout expected once, found {voice.count(fanout_old)}')
 voice = voice.replace(fanout_old, fanout_new, 1)
 
-# Rebalance remaining viewers whenever a peer is removed/rebuilt. There are
-# currently two cleanup paths (normal leave + WebRTC rebuild); patch every one.
 delete_anchor = 'screenSenders.current.delete(remoteSlot);'
 delete_count = voice.count(delete_anchor)
 if delete_count < 1:
@@ -102,7 +99,7 @@ if delete_count < 1:
 voice = voice.replace(delete_anchor, delete_anchor + '\n          if (screenRef.current) window.setTimeout(() => { void rebalanceScreenQuality(); }, 0);')
 
 old_toast = 'onToast("Sua tela agora está sendo transmitida para a call • até 4K/60 FPS quando a rede permitir");'
-new_toast = 'onToast("Tela compartilhada • qualidade automática: máximo com 1 espectador, upload equilibrado com vários");'
+new_toast = 'onToast("Sua tela agora está sendo transmitida para a call • qualidade automática: máximo com 1 espectador, upload equilibrado com vários");'
 if voice.count(old_toast) == 1:
     voice = voice.replace(old_toast, new_toast, 1)
 
