@@ -89,4 +89,10 @@ regex_once(
 visual_runner = Path('../patches/reliable/v0420-visual-css-only.py')
 exec(compile(visual_runner.read_text(encoding='utf-8'), str(visual_runner), 'exec'), {'Path': Path, '__name__': '__main__'})
 
-print('Klyvro v0.4.18 heartbeat/media-status + bounded ICE signaling retry + premium visual refresh patch applied')
+# Apply hi-res screen sharing and mention UI before v0.4.19 runs. The wrapper
+# intentionally skips release metadata so the established version chain and
+# validation remain unchanged.
+feature_runner = Path('../patches/reliable/v0421-pre-v0419.py')
+exec(compile(feature_runner.read_text(encoding='utf-8'), str(feature_runner), 'exec'), {'Path': Path, 're': re, '__name__': '__main__'})
+
+print('Klyvro v0.4.18 heartbeat/media-status + ICE retry + premium visual + hi-res share/mentions patch applied')
