@@ -53,6 +53,7 @@ jobs:
           cp patches/reliable/sw.js .site/public/sw.js
           (cd .site && python ../patches/reliable/v044.py)
           (cd .site && python ../patches/reliable/v044-fix.py)
+          (cd .site && python ../patches/reliable/v045.py)
 
       - name: Validate Klyvro source invariants
         run: |
@@ -61,12 +62,15 @@ jobs:
           root = Path('.site/app')
           joined = '\n'.join(p.read_text(encoding='utf-8') for p in root.glob('*') if p.is_file())
           required = [
-              'const KLYVRO_BUILD = "0.4.4";',
-              'VOZ • CORE v0.4.4',
+              'const KLYVRO_BUILD = "0.4.5";',
+              'VOZ • CORE v0.4.5',
               'Online • sincronizado',
               'Mensagens recentes',
               'createDeviceToken()',
               'new URL(window.location.pathname, window.location.origin)',
+              'pendingProfileNameRef',
+              'Nome sincronizado para todos',
+              'liveProfiles',
           ]
           forbidden = [
               'Online • 32 ms',
@@ -75,12 +79,13 @@ jobs:
               '/klyvro/og.png',
               'codex-preview',
               'aguarde até 20 segundos',
+              'VOZ • CORE v0.4.4',
           ]
           missing = [item for item in required if item not in joined]
           found = [item for item in forbidden if item in joined]
           if missing or found:
               raise SystemExit(f'Klyvro source validation failed; missing={missing}; forbidden={found}')
-          print('Klyvro v0.4.4 source invariants OK')
+          print('Klyvro v0.4.5 source invariants OK')
           PY
 
       - name: Install dependencies
