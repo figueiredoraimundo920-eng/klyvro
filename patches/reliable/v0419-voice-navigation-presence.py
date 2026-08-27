@@ -175,6 +175,20 @@ once(
             profile={profile}'''
 )
 
+# When the user explicitly switches to another voice room, force a fresh
+# VoiceRoom lifecycle. Normal text/LFG navigation keeps the same key and still
+# preserves the active call, while an intentional room change remounts the
+# component so stale joined/autoJoin refs and old peer state cannot leak into
+# the new room.
+once(
+    'app/nexora-app.tsx',
+    '''            roomName={voiceSession.roomName}
+            roomId={`${voiceSession.serverId}:${voiceSession.channelId}`}''',
+    '''            key={`${voiceSession.serverId}:${voiceSession.channelId}`}
+            roomName={voiceSession.roomName}
+            roomId={`${voiceSession.serverId}:${voiceSession.channelId}`}'''
+)
+
 # The compact call dock used to cover the full-width chat composer. Keep it
 # above the composer, compact, and pointer-transparent except for its controls.
 css = ROOT / 'app/globals.css'
