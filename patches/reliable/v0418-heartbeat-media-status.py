@@ -1,0 +1,37 @@
+from pathlib import Path
+
+ROOT = Path('.')
+
+
+def once(path: str, old: str, new: str):
+    p = ROOT / path
+    text = p.read_text(encoding='utf-8')
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f'{path}: v0.4.18 expected one target, found {count}: {old[:180]!r}')
+    p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+
+# Version metadata.
+once('app/nexora-app.tsx', 'const KLYVRO_BUILD = "0.4.17";', 'const KLYVRO_BUILD = "0.4.18";')
+once('package.json', '"version": "0.4.17"', '"version": "0.4.18"')
+once('app/voice-room.tsx', 'VOZ • CORE v0.4.17', 'VOZ • CORE v0.4.18')
+
+# A successful Supabase heartbeat only proves signaling/presence reachability. It
+# must not clear a WebRTC media failure. Recompute the aggregate call state from
+# the live peer connections when the heartbeat recovers so the header remains
+# truthful while any peer is failed/disconnected/negotiating.
+once(
+    'app/voice-room.tsx',
+    '''        setState((current) => current === "error" ? "waiting" : current);''',
+    '''        setState((current) => {
+          if (current !== "error") return current;
+          const peerStates = [...pcs.current.values()].map((peer) => peer.connectionState);
+          if (peerStates.some((peerState) => peerState === "failed" || peerState === "disconnected")) return "error";
+          if (peerStates.length > 0 && peerStates.every((peerState) => peerState === "connected")) return "online";
+          if (peerStates.length > 0) return "connecting";
+          return "waiting";
+        });'''
+)
+
+print('Klyvro v0.4.18 heartbeat/media-status separation patch applied')
