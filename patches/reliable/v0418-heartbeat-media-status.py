@@ -83,4 +83,10 @@ regex_once(
         };'''
 )
 
-print('Klyvro v0.4.18 heartbeat/media-status + bounded ICE signaling retry patch applied')
+# Apply the visual system after the reliability changes above. This runner only
+# appends CSS; it intentionally does not change release metadata or call/chat
+# data flow, so the v0.4.19 voice-navigation patch can still apply afterward.
+visual_runner = Path('../patches/reliable/v0420-visual-css-only.py')
+exec(compile(visual_runner.read_text(encoding='utf-8'), str(visual_runner), 'exec'), {'Path': Path, '__name__': '__main__'})
+
+print('Klyvro v0.4.18 heartbeat/media-status + bounded ICE signaling retry + premium visual refresh patch applied')
