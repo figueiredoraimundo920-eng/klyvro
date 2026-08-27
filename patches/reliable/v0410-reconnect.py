@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 ROOT = Path('.')
 
@@ -9,6 +10,14 @@ def once(path: str, old: str, new: str):
     if count != 1:
         raise SystemExit(f'{path}: v0.4.10 expected one target, found {count}: {old[:180]!r}')
     p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+def regex_once(path: str, pattern: str, replacement: str):
+    p = ROOT / path
+    text = p.read_text(encoding='utf-8')
+    next_text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+    if count != 1:
+        raise SystemExit(f'{path}: v0.4.10 regex expected one target, found {count}: {pattern[:180]!r}')
+    p.write_text(next_text, encoding='utf-8')
 
 # Version metadata.
 once('app/nexora-app.tsx', 'const KLYVRO_BUILD = "0.4.9";', 'const KLYVRO_BUILD = "0.4.10";')
@@ -52,25 +61,9 @@ once(
         pendingCandidates.current.delete(remoteSlot);'''
 )
 
-# Replace the old "failed -> waiting" behavior with an actual peer rebuild. A
-# short grace period handles transient Chromium disconnected states; hard failed
-# connections rebuild immediately. The lower profile slot remains the deterministic
-# offerer, preventing glare while both browsers recover at roughly the same time.
-once(
-    'app/voice-room.tsx',
-    '''        pc.onconnectionstatechange = () => {
-          const connected = pc.connectionState === "connected";
-          setPeers((current) => current[remoteSlot] ? { ...current, [remoteSlot]: { ...current[remoteSlot], connected } } : current);
-          if (connected) {
-            setState("online");
-            if (screenRef.current) void sendScreenStateTo(remoteSlot, true).catch(() => undefined);
-          }
-          if (pc.connectionState === "failed") {
-            setState("waiting");
-            onToast(`Áudio com ${remoteName} não fechou. A rede pode exigir TURN.`);
-          }
-        };''',
-    '''        pc.onconnectionstatechange = () => {
+# The assembled v0.4.9 source has evolved across several patches, so target the
+# single connection-state handler structurally rather than depending on old copy.
+connection_handler = '''        pc.onconnectionstatechange = () => {
           const connectionState = pc.connectionState;
           const connected = connectionState === "connected";
           setPeers((current) => current[remoteSlot] ? { ...current, [remoteSlot]: { ...current[remoteSlot], connected } } : current);
@@ -95,12 +88,14 @@ once(
             void restartPeer(remoteSlot, remoteName, pc);
           }
         };'''
+regex_once(
+    'app/voice-room.tsx',
+    r'        pc\.onconnectionstatechange = \(\) => \{.*?\n        \};(?=\n        return pc;)',
+    connection_handler
 )
 
-# A full RTCPeerConnection rebuild is more interoperable than only changing the
-# label to "reconnecting". It refreshes ICE candidates, audio receivers and the
-# negotiated screen-share transceiver. Existing screen sharing is rebound by the
-# normal ensurePeer/connected path.
+# A full RTCPeerConnection rebuild refreshes ICE candidates, audio receivers and
+# the negotiated screen-share transceiver. Lower slot remains deterministic offerer.
 once(
     'app/voice-room.tsx',
     '''      const handleSignal = async (signal: SignalRow) => {''',
