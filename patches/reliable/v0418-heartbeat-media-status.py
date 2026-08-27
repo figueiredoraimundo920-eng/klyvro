@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 ROOT = Path('.')
 
@@ -10,6 +11,15 @@ def once(path: str, old: str, new: str):
     if count != 1:
         raise SystemExit(f'{path}: v0.4.18 expected one target, found {count}: {old[:180]!r}')
     p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+
+def regex_once(path: str, pattern: str, replacement: str):
+    p = ROOT / path
+    text = p.read_text(encoding='utf-8')
+    next_text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+    if count != 1:
+        raise SystemExit(f'{path}: v0.4.18 regex expected one target, found {count}: {pattern[:180]!r}')
+    p.write_text(next_text, encoding='utf-8')
 
 
 # Version metadata.
@@ -46,14 +56,12 @@ once(
 
 # ICE gathering can produce the only viable route for a restrictive peer. A
 # transient signaling RPC failure must not permanently discard that candidate.
-# Retry briefly, but only while the candidate still belongs to the exact same
-# RTCPeerConnection generation. This avoids leaking stale ICE into a rebuilt
-# peer and keeps the retry bounded.
-once(
+# Replace the assembled connection's single ICE callback structurally because
+# earlier source generations use slightly different toast wording. Retry only
+# while the candidate still belongs to the exact same RTCPeerConnection.
+regex_once(
     'app/voice-room.tsx',
-    '''        pc.onicecandidate = (event) => {
-          if (event.candidate) void sendSignal(remoteSlot, "candidate", event.candidate.toJSON()).catch(() => onToast("Falha ao trocar rota de áudio."));
-        };''',
+    r'''        pc\.onicecandidate = \(event\) => \{.*?\n        \};(?=\n        pc\.ontrack = )''',
     '''        pc.onicecandidate = (event) => {
           if (!event.candidate) return;
           const candidate = event.candidate.toJSON();
@@ -64,7 +72,7 @@ once(
             } catch (error) {
               if (attempt >= 3 || pcs.current.get(remoteSlot) !== pc || pc.connectionState === "closed") {
                 console.warn("Klyvro ICE candidate signaling failed", { remoteSlot, attempt, error });
-                onToast("Falha ao trocar rota de áudio. Vou tentar recuperar a conexão.");
+                onToast("Falha ao trocar rota de mídia. A recuperação da conexão continuará automaticamente.");
                 return;
               }
               await new Promise<void>((resolve) => window.setTimeout(resolve, 250 * attempt));
@@ -75,4 +83,4 @@ once(
         };'''
 )
 
-print('Klyvro v0.4.18 heartbeat/media-status + ICE signaling retry patch applied')
+print('Klyvro v0.4.18 heartbeat/media-status + bounded ICE signaling retry patch applied')
