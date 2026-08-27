@@ -68,6 +68,7 @@ jobs:
           (cd .site && python ../patches/reliable/v0413-ptt-focus-release.py)
           (cd .site && python ../patches/reliable/v0414-deafen-late-peer.py)
           (cd .site && python ../patches/reliable/v0415-mic-recovery.py)
+          (cd .site && python ../patches/reliable/v0416-mic-track-ended.py)
 
       - name: Validate Klyvro source invariants
         run: |
@@ -77,8 +78,8 @@ jobs:
           root = Path('.site/app')
           joined = '\n'.join(p.read_text(encoding='utf-8') for p in root.glob('*') if p.is_file())
           required = [
-              'const KLYVRO_BUILD = "0.4.15";',
-              'VOZ • CORE v0.4.15',
+              'const KLYVRO_BUILD = "0.4.16";',
+              'VOZ • CORE v0.4.16',
               'formatMessageTime',
               'scheduleIdentityRetry',
               'setConnectAttempt',
@@ -129,6 +130,10 @@ jobs:
               'const retryMicRef = useRef<(() => Promise<void>) | null>(null);',
               'Microfone liberado e reconectado à call.',
               'await restartPeer(remoteSlot, remoteName, pc);',
+              'const bindMicTrackLifecycle = (track: MediaStreamTrack) => {',
+              'Microfone desconectado. Clique em Ativar microfone para tentar novamente.',
+              'if (initialMicTrack) bindMicTrackLifecycle(initialMicTrack);',
+              'bindMicTrackLifecycle(track);',
           ]
           forbidden = [
               'Online • 32 ms',
@@ -148,6 +153,7 @@ jobs:
               'VOZ • CORE v0.4.12',
               'VOZ • CORE v0.4.13',
               'VOZ • CORE v0.4.14',
+              'VOZ • CORE v0.4.15',
               'const KLYVRO_BUILD = "0.4.6";',
               'const KLYVRO_BUILD = "0.4.7";',
               'const KLYVRO_BUILD = "0.4.8";',
@@ -157,6 +163,7 @@ jobs:
               'const KLYVRO_BUILD = "0.4.12";',
               'const KLYVRO_BUILD = "0.4.13";',
               'const KLYVRO_BUILD = "0.4.14";',
+              'const KLYVRO_BUILD = "0.4.15";',
               'display_name: "Luccas"',
               'Prévia local da tela iniciada',
               'Sua tela • prévia local',
@@ -168,11 +175,11 @@ jobs:
           missing = [item for item in required if item not in joined]
           found = [item for item in forbidden if item in joined]
           package = json.loads(Path('.site/package.json').read_text(encoding='utf-8'))
-          if package.get('version') != '0.4.15':
-              missing.append('package version 0.4.15')
+          if package.get('version') != '0.4.16':
+              missing.append('package version 0.4.16')
           if missing or found:
               raise SystemExit(f'Klyvro source validation failed; missing={missing}; forbidden={found}')
-          print('Klyvro v0.4.15 microphone recovery/deafen/PTT/reconnect/screen-sharing invariants OK')
+          print('Klyvro v0.4.16 mic lifecycle/recovery/deafen/PTT/reconnect/screen-sharing invariants OK')
           PY
 
       - name: Install dependencies
