@@ -71,6 +71,7 @@ jobs:
           (cd .site && python ../patches/reliable/v0416-mic-track-ended.py)
           (cd .site && python ../patches/reliable/v0417-mic-reconnect-result.py)
           (cd .site && python ../patches/reliable/v0418-heartbeat-media-status.py)
+          (cd .site && python ../patches/reliable/v0419-voice-navigation-presence.py)
 
       - name: Validate Klyvro source invariants
         run: |
@@ -80,8 +81,8 @@ jobs:
           root = Path('.site/app')
           joined = '\n'.join(p.read_text(encoding='utf-8') for p in root.glob('*') if p.is_file())
           required = [
-              'const KLYVRO_BUILD = "0.4.18";',
-              'VOZ • CORE v0.4.18',
+              'const KLYVRO_BUILD = "0.4.19";',
+              'VOZ • CORE v0.4.19',
               'formatMessageTime',
               'scheduleIdentityRetry',
               'setConnectAttempt',
@@ -113,6 +114,15 @@ jobs:
               'requestFullscreen',
               'screen-fullscreen-button',
               'visible={activeServer === voiceSession.serverId',
+              'autoJoin={voiceAutoJoinRoom ===',
+              'const autoJoinStartedRef = useRef(false);',
+              'const [voiceAutoJoinRoom, setVoiceAutoJoinRoom]',
+              'const [voicePresence, setVoicePresence]',
+              'setVoicePresence(livePresence);',
+              'const voiceMembersFor = (channelId: string) => {',
+              'voice-live-members',
+              'voice-channel-preview',
+              'Você só troca de sala quando clicar em Entrar.',
               'klyvro_update_profile_v2',
               'avatar_data',
               'display_name: "Souzza"',
@@ -162,6 +172,7 @@ jobs:
               'VOZ • CORE v0.4.15',
               'VOZ • CORE v0.4.16',
               'VOZ • CORE v0.4.17',
+              'VOZ • CORE v0.4.18',
               'const KLYVRO_BUILD = "0.4.6";',
               'const KLYVRO_BUILD = "0.4.7";',
               'const KLYVRO_BUILD = "0.4.8";',
@@ -174,6 +185,7 @@ jobs:
               'const KLYVRO_BUILD = "0.4.15";',
               'const KLYVRO_BUILD = "0.4.16";',
               'const KLYVRO_BUILD = "0.4.17";',
+              'const KLYVRO_BUILD = "0.4.18";',
               'Microfone liberado e reconectado à call.',
               'display_name: "Luccas"',
               'Prévia local da tela iniciada',
@@ -186,11 +198,11 @@ jobs:
           missing = [item for item in required if item not in joined]
           found = [item for item in forbidden if item in joined]
           package = json.loads(Path('.site/package.json').read_text(encoding='utf-8'))
-          if package.get('version') != '0.4.18':
-              missing.append('package version 0.4.18')
+          if package.get('version') != '0.4.19':
+              missing.append('package version 0.4.19')
           if missing or found:
               raise SystemExit(f'Klyvro source validation failed; missing={missing}; forbidden={found}')
-          print('Klyvro v0.4.18 truthful heartbeat/media/reconnect/deafen/PTT/screen-sharing invariants OK')
+          print('Klyvro v0.4.19 explicit voice switching/chat composer/live room presence invariants OK')
           PY
 
       - name: Install dependencies
