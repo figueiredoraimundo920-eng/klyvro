@@ -54,21 +54,28 @@ jobs:
           (cd .site && python ../patches/reliable/v044.py)
           (cd .site && python ../patches/reliable/v044-fix.py)
           (cd .site && python ../patches/reliable/v045.py)
+          (cd .site && python ../patches/reliable/v046.py)
+          (cd .site && python ../patches/reliable/v046-polish.py)
 
       - name: Validate Klyvro source invariants
         run: |
           python - <<'PY'
           from pathlib import Path
+          import json
           root = Path('.site/app')
           joined = '\n'.join(p.read_text(encoding='utf-8') for p in root.glob('*') if p.is_file())
           required = [
-              'const KLYVRO_BUILD = "0.4.5";',
-              'VOZ • CORE v0.4.5',
-              'Online • sincronizado',
-              'Mensagens recentes',
-              'createDeviceToken()',
-              'new URL(window.location.pathname, window.location.origin)',
-              'pendingProfileNameRef',
+              'const KLYVRO_BUILD = "0.4.6";',
+              'VOZ • CORE v0.4.6',
+              'formatMessageTime',
+              'scheduleIdentityRetry',
+              'setConnectAttempt',
+              'currentProfileColor',
+              'seenServerMessageIdsRef',
+              'unread={readChannels[item.id] === false}',
+              'PERFIL E PREFERÊNCIAS',
+              'owned?: boolean',
+              'DEFAULT_PROFILE: UserProfile = { name: "Jogador"',
               'Nome sincronizado para todos',
               'liveProfiles',
           ]
@@ -78,23 +85,21 @@ jobs:
               '24 de agosto de 2026',
               '/klyvro/og.png',
               'codex-preview',
-              'aguarde até 20 segundos',
-              'VOZ • CORE v0.4.4',
+              'PREFERÊNCIAS LOCAIS',
+              'key={member.name}',
+              'VOZ • CORE v0.4.5',
+              'const KLYVRO_BUILD = "0.4.5";',
+              'display_name: "Luccas"',
           ]
           missing = [item for item in required if item not in joined]
           found = [item for item in forbidden if item in joined]
+          package = json.loads(Path('.site/package.json').read_text(encoding='utf-8'))
+          if package.get('version') != '0.4.6':
+              missing.append('package version 0.4.6')
           if missing or found:
               raise SystemExit(f'Klyvro source validation failed; missing={missing}; forbidden={found}')
-          print('Klyvro v0.4.5 source invariants OK')
+          print('Klyvro v0.4.6 source invariants OK')
           PY
-
-      - name: Snapshot patched source for QA
-        uses: actions/upload-artifact@v4
-        with:
-          name: klyvro-source-v045-qa
-          path: .site
-          retention-days: 1
-          include-hidden-files: true
 
       - name: Install dependencies
         working-directory: .site
