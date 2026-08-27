@@ -50,4 +50,52 @@ once(
           }'''
 )
 
-print('Klyvro v0.4.17 truthful microphone peer-reconnect result patch applied')
+# A rebuilt peer previously got only one chance to kick off renegotiation. A
+# transient failure in either the offer RPC or the asymmetric restart-request RPC
+# could leave the replacement RTCPeerConnection in "new" forever. Schedule a
+# bounded fresh-peer retry. Rethrow the first failure so microphone recovery and
+# other awaited callers keep reporting partial reconnection truthfully.
+once(
+    'app/voice-room.tsx',
+    '''          ensurePeer(remoteSlot, remoteName);
+          if (localSlot < remoteSlot) await maybeOffer(remoteSlot, remoteName);
+          else await sendRestartRequestTo(remoteSlot);''',
+    '''          ensurePeer(remoteSlot, remoteName);
+          try {
+            if (localSlot < remoteSlot) await maybeOffer(remoteSlot, remoteName);
+            else await sendRestartRequestTo(remoteSlot);
+          } catch (error) {
+            console.warn("Klyvro peer renegotiation kickoff failed", { remoteSlot, attempt, error });
+            const replacement = pcs.current.get(remoteSlot);
+            if (replacement) {
+              window.setTimeout(() => {
+                const current = pcs.current.get(remoteSlot);
+                if (current === replacement && current.connectionState !== "connected") {
+                  void restartPeer(remoteSlot, remoteName, current).catch((retryError) => {
+                    console.warn("Klyvro delayed peer renegotiation retry failed", { remoteSlot, retryError });
+                  });
+                }
+              }, 1500);
+            }
+            throw error;
+          }'''
+)
+
+# The connection-state callbacks intentionally fire-and-forget. Consume the
+# rejection there; restartPeer already schedules the bounded retry above.
+once(
+    'app/voice-room.tsx',
+    '''                void restartPeer(remoteSlot, remoteName, pc);''',
+    '''                void restartPeer(remoteSlot, remoteName, pc).catch((error) => {
+                  console.warn("Klyvro automatic disconnected-peer restart failed", { remoteSlot, error });
+                });'''
+)
+once(
+    'app/voice-room.tsx',
+    '''            void restartPeer(remoteSlot, remoteName, pc);''',
+    '''            void restartPeer(remoteSlot, remoteName, pc).catch((error) => {
+              console.warn("Klyvro automatic failed-peer restart failed", { remoteSlot, error });
+            });'''
+)
+
+print('Klyvro v0.4.17 truthful mic status + bounded signaling retry patch applied')
