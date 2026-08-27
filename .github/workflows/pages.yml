@@ -58,6 +58,8 @@ jobs:
           (cd .site && python ../patches/reliable/v046-polish.py)
           base64 --decode patches/reliable/voice-v047.tsx.gz.b64 | gzip -dc > .site/app/voice-room.tsx
           (cd .site && python ../patches/reliable/v047.py)
+          (cd .site && python ../patches/reliable/voice-v048.py)
+          (cd .site && python ../patches/reliable/v048.py)
 
       - name: Validate Klyvro source invariants
         run: |
@@ -67,8 +69,8 @@ jobs:
           root = Path('.site/app')
           joined = '\n'.join(p.read_text(encoding='utf-8') for p in root.glob('*') if p.is_file())
           required = [
-              'const KLYVRO_BUILD = "0.4.7";',
-              'VOZ • CORE v0.4.7',
+              'const KLYVRO_BUILD = "0.4.8";',
+              'VOZ • CORE v0.4.8',
               'formatMessageTime',
               'scheduleIdentityRetry',
               'setConnectAttempt',
@@ -78,7 +80,6 @@ jobs:
               'PERFIL E PREFERÊNCIAS',
               'owned?: boolean',
               'DEFAULT_PROFILE: UserProfile = { name: "Jogador"',
-              'Nome sincronizado para todos',
               'liveProfiles',
               'screenSenders',
               'remoteScreens',
@@ -87,6 +88,16 @@ jobs:
               'getDisplayMedia',
               'Sua tela agora está sendo transmitida para a call',
               'mídia P2P',
+              'playCatMeow',
+              'voice-call-dock',
+              'requestFullscreen',
+              'screen-fullscreen-button',
+              'visible={activeServer === voiceSession.serverId',
+              'klyvro_update_profile_v2',
+              'avatar_data',
+              'display_name: "Souzza"',
+              'display_name: "randola"',
+              '{onlineSlots.length}/5 ONLINE',
           ]
           forbidden = [
               'Online • 32 ms',
@@ -98,19 +109,25 @@ jobs:
               'key={member.name}',
               'VOZ • CORE v0.4.5',
               'VOZ • CORE v0.4.6',
+              'VOZ • CORE v0.4.7',
               'const KLYVRO_BUILD = "0.4.6";',
+              'const KLYVRO_BUILD = "0.4.7";',
               'display_name: "Luccas"',
               'Prévia local da tela iniciada',
               'Sua tela • prévia local',
+              '{onlineSlots.length}/3 ONLINE',
+              'Os 3 perfis estão ativos',
+              'Os 3 perfis estão em uso',
+              'A foto continua salva apenas neste dispositivo',
           ]
           missing = [item for item in required if item not in joined]
           found = [item for item in forbidden if item in joined]
           package = json.loads(Path('.site/package.json').read_text(encoding='utf-8'))
-          if package.get('version') != '0.4.7':
-              missing.append('package version 0.4.7')
+          if package.get('version') != '0.4.8':
+              missing.append('package version 0.4.8')
           if missing or found:
               raise SystemExit(f'Klyvro source validation failed; missing={missing}; forbidden={found}')
-          print('Klyvro v0.4.7 voice/screen-share invariants OK')
+          print('Klyvro v0.4.8 five profiles/persistent call/fullscreen/avatar invariants OK')
           PY
 
       - name: Install dependencies
