@@ -88,6 +88,14 @@ jobs:
           print('Klyvro v0.4.5 source invariants OK')
           PY
 
+      - name: Snapshot patched source for QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: klyvro-source-v045-qa
+          path: .site
+          retention-days: 1
+          include-hidden-files: true
+
       - name: Install dependencies
         working-directory: .site
         run: npm install --no-audit --no-fund
