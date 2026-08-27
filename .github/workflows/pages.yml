@@ -63,6 +63,7 @@ jobs:
           (cd .site && python ../patches/reliable/v048-connect-hotfix.py)
           (cd .site && python ../patches/reliable/v049-screen-receive.py)
           (cd .site && python ../patches/reliable/v0410-reconnect.py)
+          (cd .site && python ../patches/reliable/v0411-restart-request.py)
 
       - name: Validate Klyvro source invariants
         run: |
@@ -72,8 +73,8 @@ jobs:
           root = Path('.site/app')
           joined = '\n'.join(p.read_text(encoding='utf-8') for p in root.glob('*') if p.is_file())
           required = [
-              'const KLYVRO_BUILD = "0.4.10";',
-              'VOZ • CORE v0.4.10',
+              'const KLYVRO_BUILD = "0.4.11";',
+              'VOZ • CORE v0.4.11',
               'formatMessageTime',
               'scheduleIdentityRetry',
               'setConnectAttempt',
@@ -90,6 +91,9 @@ jobs:
               'remoteScreenActive',
               'bindNegotiatedVideoSender',
               'p_kind: "screen"',
+              'p_kind: "restart"',
+              'sendRestartRequestTo',
+              'signal.kind === "restart"',
               'addTransceiver("video", { direction: "sendrecv" })',
               'replaceScreenTrackForPeers',
               'getDisplayMedia',
@@ -126,10 +130,12 @@ jobs:
               'VOZ • CORE v0.4.7',
               'VOZ • CORE v0.4.8',
               'VOZ • CORE v0.4.9',
+              'VOZ • CORE v0.4.10',
               'const KLYVRO_BUILD = "0.4.6";',
               'const KLYVRO_BUILD = "0.4.7";',
               'const KLYVRO_BUILD = "0.4.8";',
               'const KLYVRO_BUILD = "0.4.9";',
+              'const KLYVRO_BUILD = "0.4.10";',
               'display_name: "Luccas"',
               'Prévia local da tela iniciada',
               'Sua tela • prévia local',
@@ -141,11 +147,11 @@ jobs:
           missing = [item for item in required if item not in joined]
           found = [item for item in forbidden if item in joined]
           package = json.loads(Path('.site/package.json').read_text(encoding='utf-8'))
-          if package.get('version') != '0.4.10':
-              missing.append('package version 0.4.10')
+          if package.get('version') != '0.4.11':
+              missing.append('package version 0.4.11')
           if missing or found:
               raise SystemExit(f'Klyvro source validation failed; missing={missing}; forbidden={found}')
-          print('Klyvro v0.4.10 reconnect/screen-sharing invariants OK')
+          print('Klyvro v0.4.11 asymmetric reconnect/screen-sharing invariants OK')
           PY
 
       - name: Install dependencies
