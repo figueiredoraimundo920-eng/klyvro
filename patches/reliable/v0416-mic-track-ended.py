@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 ROOT = Path('.')
 
@@ -71,4 +72,19 @@ once(
     mic.current = null;'''
 )
 
-print('Klyvro v0.4.16 microphone track-ended lifecycle recovery patch applied')
+# Stopping screen share from the browser's native sharing chip/button ends the
+# display track without invoking Klyvro's own "Parar tela" button. Previously
+# that path only cleared the local preview, leaving the negotiated sender and
+# explicit remote screen state active. Route native track end through stopScreen
+# so replaceTrack(null) and the screen=false signal reach every peer too.
+p = ROOT / 'app/voice-room.tsx'
+text = p.read_text(encoding='utf-8')
+pattern = re.compile(
+    r'(?:stream\.getVideoTracks\(\)\[0\]|track)\.onended\s*=\s*\(\)\s*=>\s*\{\s*screenRef\.current\s*=\s*null;\s*setScreen\(null\);\s*\};'
+)
+text, count = pattern.subn('track.onended = () => { stopScreen(false); };', text, count=1)
+if count != 1:
+    raise SystemExit(f'app/voice-room.tsx: v0.4.16 expected one native screen-ended handler, found {count}')
+p.write_text(text, encoding='utf-8')
+
+print('Klyvro v0.4.16 microphone lifecycle + native screen-stop recovery patch applied')
