@@ -60,6 +60,7 @@ jobs:
           (cd .site && python ../patches/reliable/v047.py)
           (cd .site && python ../patches/reliable/voice-v048.py)
           (cd .site && python ../patches/reliable/v048.py)
+          (cd .site && python ../patches/reliable/v048-connect-hotfix.py)
 
       - name: Validate Klyvro source invariants
         run: |
@@ -98,6 +99,8 @@ jobs:
               'display_name: "Souzza"',
               'display_name: "randola"',
               '{onlineSlots.length}/5 ONLINE',
+              'continuing voice without remote photos',
+              'continuing core connection without profile photos',
           ]
           forbidden = [
               'Online • 32 ms',
@@ -127,7 +130,7 @@ jobs:
               missing.append('package version 0.4.8')
           if missing or found:
               raise SystemExit(f'Klyvro source validation failed; missing={missing}; forbidden={found}')
-          print('Klyvro v0.4.8 five profiles/persistent call/fullscreen/avatar invariants OK')
+          print('Klyvro v0.4.8 connectivity hotfix invariants OK')
           PY
 
       - name: Install dependencies
