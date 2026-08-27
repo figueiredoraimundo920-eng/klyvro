@@ -180,7 +180,7 @@ signal_loop = '''        for (const raw of (data ?? []) as SignalRow[]) {
         }'''
 regex_once(
     'app/voice-room.tsx',
-    r'        for \(const raw of \(data \?\? \[\]\) as SignalRow\[\]\) \{\n          lastSignalIdRef\.current = Math\.max\(lastSignalIdRef\.current, Number\(raw\.id\)\);\n          await handleSignal\(raw\).*?\n        \}',
+    r'        for \(const raw of \(data \?\? \[\]\) as SignalRow\[\]\) \{.*?\n        \}(?=\n      \};)',
     signal_loop
 )
 
