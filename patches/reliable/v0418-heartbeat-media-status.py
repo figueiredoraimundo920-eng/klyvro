@@ -70,7 +70,7 @@ regex_once(
             try {
               await sendSignal(remoteSlot, "candidate", candidate);
             } catch (error) {
-              if (attempt >= 3 || pcs.current.get(remoteSlot) !== pc || pc.connectionState === "closed") {
+              if (attempt >= 3 || pcs.current.get(remoteSlot) !== pc || (pc.connectionState as string) === "closed") {
                 console.warn("Klyvro ICE candidate signaling failed", { remoteSlot, attempt, error });
                 onToast("Falha ao trocar rota de mídia. A recuperação da conexão continuará automaticamente.");
                 return;
