@@ -70,6 +70,7 @@ jobs:
           (cd .site && python ../patches/reliable/v0415-mic-recovery.py)
           (cd .site && python ../patches/reliable/v0416-mic-track-ended.py)
           (cd .site && python ../patches/reliable/v0417-mic-reconnect-result.py)
+          (cd .site && python ../patches/reliable/v0418-heartbeat-media-status.py)
 
       - name: Validate Klyvro source invariants
         run: |
@@ -79,8 +80,8 @@ jobs:
           root = Path('.site/app')
           joined = '\n'.join(p.read_text(encoding='utf-8') for p in root.glob('*') if p.is_file())
           required = [
-              'const KLYVRO_BUILD = "0.4.17";',
-              'VOZ • CORE v0.4.17',
+              'const KLYVRO_BUILD = "0.4.18";',
+              'VOZ • CORE v0.4.18',
               'formatMessageTime',
               'scheduleIdentityRetry',
               'setConnectAttempt',
@@ -137,6 +138,8 @@ jobs:
               'const restartResults = await Promise.allSettled',
               'const failedRestarts = restartResults.filter((result) => result.status === "rejected").length;',
               'Microfone liberado. Renegociação de mídia iniciada com a call.',
+              'if (current !== "error") return current;',
+              'if (peerStates.length > 0) return "connecting";',
           ]
           forbidden = [
               'Online • 32 ms',
@@ -158,6 +161,7 @@ jobs:
               'VOZ • CORE v0.4.14',
               'VOZ • CORE v0.4.15',
               'VOZ • CORE v0.4.16',
+              'VOZ • CORE v0.4.17',
               'const KLYVRO_BUILD = "0.4.6";',
               'const KLYVRO_BUILD = "0.4.7";',
               'const KLYVRO_BUILD = "0.4.8";',
@@ -169,6 +173,7 @@ jobs:
               'const KLYVRO_BUILD = "0.4.14";',
               'const KLYVRO_BUILD = "0.4.15";',
               'const KLYVRO_BUILD = "0.4.16";',
+              'const KLYVRO_BUILD = "0.4.17";',
               'Microfone liberado e reconectado à call.',
               'display_name: "Luccas"',
               'Prévia local da tela iniciada',
@@ -181,11 +186,11 @@ jobs:
           missing = [item for item in required if item not in joined]
           found = [item for item in forbidden if item in joined]
           package = json.loads(Path('.site/package.json').read_text(encoding='utf-8'))
-          if package.get('version') != '0.4.17':
-              missing.append('package version 0.4.17')
+          if package.get('version') != '0.4.18':
+              missing.append('package version 0.4.18')
           if missing or found:
               raise SystemExit(f'Klyvro source validation failed; missing={missing}; forbidden={found}')
-          print('Klyvro v0.4.17 truthful mic-recovery/reconnect/deafen/PTT/screen-sharing invariants OK')
+          print('Klyvro v0.4.18 truthful heartbeat/media/reconnect/deafen/PTT/screen-sharing invariants OK')
           PY
 
       - name: Install dependencies
