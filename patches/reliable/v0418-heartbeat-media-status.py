@@ -23,7 +23,7 @@ def regex_once(path: str, pattern: str, replacement: str):
 
 
 # Version metadata.
-once('app/nexora-app.tsx', 'const KLYVRO_BUILD = "0.4.17";', 'const KLYVRO_BUILD = "0.4.18"')
+once('app/nexora-app.tsx', 'const KLYVRO_BUILD = "0.4.17";', 'const KLYVRO_BUILD = "0.4.18";')
 once('package.json', '"version": "0.4.17"', '"version": "0.4.18"')
 once('app/voice-room.tsx', 'VOZ • CORE v0.4.17', 'VOZ • CORE v0.4.18')
 
