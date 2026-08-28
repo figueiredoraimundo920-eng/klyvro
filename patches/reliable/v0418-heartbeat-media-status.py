@@ -100,4 +100,9 @@ exec(compile(feature_runner.read_text(encoding='utf-8'), str(feature_runner), 'e
 adaptive_runner = Path('../patches/reliable/v0422-adaptive-screen-upload.py')
 exec(compile(adaptive_runner.read_text(encoding='utf-8'), str(adaptive_runner), 'exec'), {'Path': Path, '__name__': '__main__'})
 
-print('Klyvro v0.4.18 heartbeat/media-status + ICE retry + premium visual + mentions + adaptive hi-res share patch applied')
+# Capture tab/system audio when the browser provides it, mix it with the mic on
+# the existing audio path, and prefer smooth 1440p/60 over stutter-prone 4K/60.
+screen_audio_runner = Path('../patches/reliable/v0423-screen-audio-smoothness.py')
+exec(compile(screen_audio_runner.read_text(encoding='utf-8'), str(screen_audio_runner), 'exec'), {'Path': Path, 're': re, '__name__': '__main__'})
+
+print('Klyvro v0.4.18 heartbeat/media-status + ICE retry + premium visual + mentions + adaptive smooth share/audio patch applied')
