@@ -67,10 +67,10 @@ mic_section_start = source.find('# If microphone permission is recovered while s
 toast_section_start = source.find('# Make the success toast truthful', mic_section_start)
 if mic_section_start < 0 or toast_section_start < 0:
     raise SystemExit('v0423 source: mic recovery section markers missing')
-custom_mic_section = r'''# If microphone permission is recovered while sharing, rebuild the active screen
+custom_mic_section = r"""# If microphone permission is recovered while sharing, rebuild the active screen
 # audio mix and preserve any lifecycle binding inserted by prior patches.
 mic_recovery_pattern = re.compile(
-    r'''          mic\.current = stream;\n(?P<bind>          bindMicTrackLifecycle\(track\);\n)?          setMuted\(false\);'''
+    r"          mic\.current = stream;\n(?P<bind>          bindMicTrackLifecycle\(track\);\n)?          setMuted\(false\);"
 )
 
 def _mic_recovery_repl(match):
@@ -81,7 +81,7 @@ voice, mic_recovery_count = mic_recovery_pattern.subn(_mic_recovery_repl, voice,
 if mic_recovery_count != 1:
     raise SystemExit(f'app/voice-room.tsx: mic recovery structure expected once, found {mic_recovery_count}')
 
-'''
+"""
 source = source[:mic_section_start] + custom_mic_section + source[toast_section_start:]
 
 exec(compile(source, str(source_path), 'exec'), {'Path': Path, 're': re, '__name__': '__main__'})
