@@ -81,7 +81,7 @@ exec(compile(feature_runner.read_text(encoding='utf-8'), str(feature_runner), 'e
 adaptive_runner = Path('../patches/reliable/v0422-adaptive-screen-upload.py')
 exec(compile(adaptive_runner.read_text(encoding='utf-8'), str(adaptive_runner), 'exec'), {'Path': Path, '__name__': '__main__'})
 
-screen_audio_runner = Path('../patches/reliable/v0423-screen-audio-smoothness-safe-v5.py')
+screen_audio_runner = Path('../patches/reliable/v0423-screen-audio-smoothness-safe-v6.py')
 exec(compile(screen_audio_runner.read_text(encoding='utf-8'), str(screen_audio_runner), 'exec'), {'Path': Path, 're': re, '__name__': '__main__'})
 
 print('Klyvro v0.4.18 heartbeat/media-status + ICE retry + premium visual + mentions + adaptive smooth share/audio patch applied')
